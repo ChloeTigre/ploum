@@ -17,6 +17,7 @@ The following code shows how to create a Ploum class for emailDomain
 
 import logging
 from . import plumbing
+from . import ploum
 logger = logging.getLogger(__name__)
 
 
@@ -51,9 +52,9 @@ class LDAPHelper(object):
         str"""
         return self._dn
 
-    def __init__(self, obj):
+    def __init__(self, obj=None):
         super(LDAPHelper, self).__init__()
-        if isinstance(obj, plumbing.PloumObj):
+        if isinstance(obj, ploum.PloumObj):
             # eat the attributes of this PloumObj.
             self.__dict__.update(obj.__dict__)
         self._pk = dict(dn=self.dn)

@@ -2,16 +2,17 @@
 
 import logging
 from . import plumbing
-from .ldap_utils import get_proper_type
+from .ldap_utils import get_proper_type, get_ldap
 from .ldap_lib import build_properties
 from copy import deepcopy
-from ctrmisctk.utils import is_scalar, bytify
+from ctrmisctk.utils import is_scalar, bytify, slacker_cacher_decorator
 import ldap.modlist
+from .classmagic import ComposableType
 
 logger = logging.getLogger(__name__)
 
 
-class PloumObj(object, metaclass=plumbing.ComposableType):
+class PloumObj(object, metaclass=ComposableType):
     """A base class for PloumObj.
 
     Works without the need to be connected.
@@ -210,17 +211,82 @@ class LDAPFactory(object):
         """Get a Python class from one or more objectclasses
 
         :param objectclasses: string objectClass or tuple of strings objectClasses
+        :param conn: optional connection to use
         :return: python class"""
         if not conn and not cls.conn:
             raise RuntimeError('Cannot get_class without establish_connection before')
         elif not conn and cls.conn:
             conn = cls.conn
-        cls.objclasses, typedict = plumbing.load_schemas(conn)
+        cls.objclasses, typedict = load_schemas(conn)
         if isinstance(objectclasses, str):
             objectclasses = (objectclasses,)
         typ = get_proper_type(dict(objectClass=objectclasses), cls.objclasses)
         typ.__name__ = 'LDAP_{}'.format('_'.join(objectclasses))
         return build_properties(typedict)(typ)
 
+
+def build_ldapclass(object_class, attrdefs, all_types):
+    """Build a Python class for a LDAP objectClass
+
+    :param object_class: objectClass for which we want a python class
+    :param attrdefs: dict of possible attributes introspecet
+    :param all_types: dict referencing all introspected types
+    :return: python class"""
+    if object_class:
+        c = type('LDAPEntity_{}'.format(object_class.names[0]),
+                 (PloumObj,),
+                 {
+                     'names': plumbing.ArithmeticList(object_class.names or []),
+                     'must_fields': plumbing.ArithmeticList(object_class.must or []),
+                     'may_fields': plumbing.ArithmeticList(object_class.may or []),
+                     'sup_classes': plumbing.ArithmeticList(object_class.sup or []),
+                     'obsolete': object_class.obsolete,
+                     'oid': object_class.oid,
+                     'attr_types': attrdefs,
+                     'datadict': all_types
+                 }
+                 )
+        return c
+
+
+@slacker_cacher_decorator
+def load_schemas(ldap_conn) -> dict:
+    """Load schemas from a LDAP connection and return them
+
+    :param ldap_conn: a LDAP connection"""
+    subschema_res = ldap_conn.search_s(
+        base='', scope=ldap.SCOPE_BASE,
+        filterstr='(objectClass=*)', attrlist=['subschemaSubEntry'])
+    try:
+        subschemacn = subschema_res[0][1]['subschemaSubentry'][0].decode('utf-8')
+    except (IndexError, KeyError) as e:
+        logger.fatal(
+            'Cannot load subschema. Check if available and grant access to it.\n'
+            'Not proceeding further because LDAP access is broken:\n%s', e)
+        raise
+    logger.debug('Subschema: %s', subschemacn)
+    logger.debug('Loading LDAP schema')
+    schemata_r = ldap_conn.search_s(
+        base=subschemacn, scope=ldap.SCOPE_BASE, attrlist=['*', '+'])
+    schemata = ldap.schema.SubSchema(schemata_r[0][1])
+    object_classes = schemata.tree(ldap.schema.ObjectClass)
+    attrs_types = schemata.tree(ldap.schema.AttributeType)
+    datadict = {}
+    typedict = {}
+    for t in attrs_types:
+        typ = schemata.get_obj(ldap.schema.AttributeType, t)
+        if not typ:
+            logger.error("Cannot find type for %s", t)
+            continue
+        for n in typ.names:
+            typedict[n] = plumbing.AttributeFactory.build_attribute_class(typ, attrs_types)
+    for o in object_classes:
+        obj = schemata.get_obj(ldap.schema.ObjectClass, o)
+        if obj:
+            c = build_ldapclass(obj, typedict, datadict)
+            for i in obj.names:
+                datadict[i] = c
+                datadict[i.encode('utf-8')] = c
+    return datadict, typedict
 
 __all__ = ["PloumObj", "LDAPFactory", ]

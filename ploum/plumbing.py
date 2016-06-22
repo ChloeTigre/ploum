@@ -1,5 +1,4 @@
 from ctrmisctk.utils import debyte, is_scalar, slacker_cacher_decorator
-from .ploum import PloumObj
 import ldap.schema
 import logging
 
@@ -31,31 +30,6 @@ class AttributeFactory(object):
         }
         return attrtype
 
-
-class ComposableType(type):
-    """A type that can be composed
-
-    Used so we can compose objectClassen easily
-
-    CT1 + CT2 = CT3 with composed entities'"""
-
-    def __add__(self, other):
-        newtype = type('clone_{}_{}'.format(self.__name__ , other.__name__),
-                       self.__bases__, dict(self.__dict__))
-        newtype.__doc__ = "Generated composition of {}, {}".format(
-            self.__name__,
-            other.__name__)
-        for i in self.__dict__:
-            if isinstance(self.__dict__[i], str):
-                continue
-            val = getattr(newtype, i, []) or []
-            otherval = getattr(other, i, []) or []
-            if (i in other.__dict__ and
-                    isinstance(otherval, (type(None), list)) and
-                    isinstance(val, (type(None), list))
-                ):
-                setattr(newtype, i, val + otherval)
-        return newtype
 
 
 class LDAPAttribute(object):
@@ -107,6 +81,8 @@ class LDAPAttribute(object):
             else:
                 self._value = debyte(other)
         else:
+            if not self._value:
+                self._value = ArithmeticList()
             if other:
                 self._value += debyte(other)
         return self
@@ -235,70 +211,5 @@ class ArithmeticList(list):
 
     def is_clean(self):
         return hasattr(self, '_clean', False)
-
-
-def build_ldapclass(object_class, attrdefs, all_types):
-    """Build a Python class for a LDAP objectClass
-
-    :param object_class: objectClass for which we want a python class
-    :param attrdefs: dict of possible attributes introspecet
-    :param all_types: dict referencing all introspected types
-    :return: python class"""
-    if object_class:
-        c = type('LDAPEntity_{}'.format(object_class.names[0]),
-                 (PloumObj,),
-                 {
-                     'names': ArithmeticList(object_class.names or []),
-                     'must_fields': ArithmeticList(object_class.must or []),
-                     'may_fields': ArithmeticList(object_class.may or []),
-                     'sup_classes': ArithmeticList(object_class.sup or []),
-                     'obsolete': object_class.obsolete,
-                     'oid': object_class.oid,
-                     'attr_types': attrdefs,
-                     'datadict': all_types
-                 }
-                 )
-        return c
-
-
-@slacker_cacher_decorator
-def load_schemas(ldap_conn) -> dict:
-    """Load schemas from a LDAP connection and return them
-
-    :param ldap_conn: a LDAP connection"""
-    subschema_res = ldap_conn.search_s(
-        base='', scope=ldap.SCOPE_BASE,
-        filterstr='(objectClass=*)', attrlist=['subschemaSubEntry'])
-    try:
-        subschemacn = subschema_res[0][1]['subschemaSubentry'][0].decode('utf-8')
-    except (IndexError, KeyError) as e:
-        logger.fatal(
-            'Cannot load subschema. Check if available and grant access to it.\n'
-            'Not proceeding further because LDAP access is broken:\n%s', e)
-        raise
-    logger.debug('Subschema: %s', subschemacn)
-    logger.debug('Loading LDAP schema')
-    schemata_r = ldap_conn.search_s(
-        base=subschemacn, scope=ldap.SCOPE_BASE, attrlist=['*', '+'])
-    schemata = ldap.schema.SubSchema(schemata_r[0][1])
-    object_classes = schemata.tree(ldap.schema.ObjectClass)
-    attrs_types = schemata.tree(ldap.schema.AttributeType)
-    datadict = {}
-    typedict = {}
-    for t in attrs_types:
-        typ = schemata.get_obj(ldap.schema.AttributeType, t)
-        if not typ:
-            logger.error("Cannot find type for %s", t)
-            continue
-        for n in typ.names:
-            typedict[n] = AttributeFactory.build_attribute_class(typ, attrs_types)
-    for o in object_classes:
-        obj = schemata.get_obj(ldap.schema.ObjectClass, o)
-        if obj:
-            c = build_ldapclass(obj, typedict, datadict)
-            for i in obj.names:
-                datadict[i] = c
-                datadict[i.encode('utf-8')] = c
-    return datadict, typedict
 
 

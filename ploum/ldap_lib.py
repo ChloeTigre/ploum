@@ -24,6 +24,8 @@ def build_properties(attr_dict):
                 if isinstance(value, LDAPAttribute):
                     self._attrs[low] = value
                 else:
+                    if low not in self._attrs:
+                        logger.error("Cannot find attribute %s", i)
                     self._attrs[low] += value
                 logger.info("Value is now %s", self._attrs[low]._value)
                 logger.debug("Attr type: %s → %s", type(self._attrs[low]), self._attrs[low])
