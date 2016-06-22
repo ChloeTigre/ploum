@@ -1,11 +1,23 @@
-"""Bundle for Flatrack LDAP entities.
+"""Ploum
 
-Here as an example"""
+LDAP Helper class.
+
+This class may be extended by child classes to ease development
+of Ploum classes.
+
+The following code shows how to create a Ploum class for emailDomain
+.. code:: python
+
+    _baseMaildomain = ploum.LDAPFactory.get_class('mailDomain')
+
+    class EmailDomain(LDAPHelper, _baseMaildomain):
+        EXT_DN = "ou=mailDomains,dc=mail,"
+        OBJECT_CLASSES = ('mailDomain',)
+"""
+
 import logging
-
-from . import ldap_lib
+from . import plumbing
 logger = logging.getLogger(__name__)
-TYPE_MAPPING = dict()
 
 
 class LDAPHelper(object):
@@ -41,22 +53,11 @@ class LDAPHelper(object):
 
     def __init__(self, obj):
         super(LDAPHelper, self).__init__()
-        if isinstance(obj, ldap_lib.LDAPObj):
-            # eat the attributes of this LDAPObj.
+        if isinstance(obj, plumbing.PloumObj):
+            # eat the attributes of this PloumObj.
             self.__dict__.update(obj.__dict__)
         self._pk = dict(dn=self.dn)
         self._mode = 'normal'
 
-_baseMaildomain = ldap_lib.LDAPFactory.get_class('mailDomain')
 
-# Example LDAP entity.
-
-
-class EmailDomain(LDAPHelper,
-                  _baseMaildomain
-                  ):
-    """EmailDomain represents LDAP objects with objectClass=mailDomain
-    """
-    EXT_DN = "ou=mailDomains,dc=mail,"
-    OBJECT_CLASSES = ('mailDomain',)
-
+__all__ = ['LDAPHelper', ]

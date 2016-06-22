@@ -1,0 +1,26 @@
+# Inspired from https://www.gitignore.io/api/python,vim
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/*
+__pycache__
+*.py[cod]
+*$py.class
+*dis
+
+# C extensions
+*.so
+
+### Vim ###
+.*.s[a-w][a-z]
+.s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+*~
+
+########################################################################
+## In case we log into git tree
+*.log
+_build/
+.idea/
+runtime/
