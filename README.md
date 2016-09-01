@@ -42,3 +42,8 @@ namely, prefix searches and extensible match filters should in the end be suppor
 
 Ploum will not configure your LDAP server. Ploum will not establish and manage connections to
 the LDAP server.
+
+## License
+
+Ploum is © 2016 NBS System, authored by Chloé Desoutter. It is licensed under the GNU GPL
+that you can find in this source tree as LICENSE.txt
