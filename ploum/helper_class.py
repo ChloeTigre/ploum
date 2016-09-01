@@ -1,3 +1,4 @@
+# -*- encoding: utf-8
 """Ploum
 
 LDAP Helper class.
@@ -51,6 +52,13 @@ class LDAPHelper(object):
         --
         str"""
         return self._dn
+
+    @classmethod
+    def search_all(cls, **kwargs):
+        d = cls()
+        def search(conn):
+            return [cls(a) for a in d.search_all_ldap(**kwargs)(conn)]
+        return search
 
     def __init__(self, obj=None):
         super(LDAPHelper, self).__init__()

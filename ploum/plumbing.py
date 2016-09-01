@@ -1,3 +1,4 @@
+# -*- encoding: utf-8
 from ctrmisctk.utils import debyte, is_scalar, slacker_cacher_decorator
 import ldap.schema
 import logging

@@ -1,4 +1,8 @@
-"""Ploum"""
+# -*- encoding: utf-8
+"""Ploum - a python LDAP pseudo-ORM
+
+by Chloé Desoutter <chloe.desoutter@nbs-system.com>, <chloe@tigres-rouges.net>
+"""
 
 import logging
 from . import plumbing

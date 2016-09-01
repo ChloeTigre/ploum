@@ -1,3 +1,4 @@
+# -*- encoding: utf-8
 import logging
 from ctrmisctk.utils import slacker_cacher_decorator
 from .plumbing import AttributeFactory

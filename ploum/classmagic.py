@@ -1,4 +1,5 @@
 """Utilities that change class items"""
+# -*- encoding: utf-8
 
 
 class ComposableType(type):

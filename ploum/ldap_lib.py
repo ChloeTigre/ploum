@@ -1,6 +1,8 @@
 """LDAP lib for introspection
 ←
 Contains useful helpers"""
+# -*- encoding: utf-8
+
 import logging
 from .plumbing import LDAPAttribute
 
